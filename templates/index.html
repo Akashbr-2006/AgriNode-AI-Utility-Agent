@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AgriNode AI | Smart Farmer Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500&family=Inter:wght@300;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="main-container">
+        <header class="hero">
+            <h1>AGRI<span>NODE</span></h1>
+            <div class="live-tag"><span class="dot"></span> SATELLITE SYSTEM: <span id="loc-tag">READY</span></div>
+        </header>
+
+        <div class="info-row">
+            <div class="info-card">
+                <div class="icon">☀️</div>
+                <div class="txt"><small>TEMPERATURE</small><strong id="card-temp">-- °C</strong></div>
+            </div>
+            <div class="info-card">
+                <div class="icon">💧</div>
+                <div class="txt"><small>RAIN EXPECTED</small><strong id="card-rain">-- mm</strong></div>
+            </div>
+            <div class="info-card">
+                <div class="icon">🚜</div>
+                <div class="txt"><small>SEASON</small><strong id="card-season">--</strong></div>
+            </div>
+        </div>
+
+        <section class="glass-box">
+            <div class="input-grid">
+                <div class="field">
+                    <label>SELECT STATE</label>
+                    <select id="state" class="ui-input">
+                        <option>Karnataka</option><option>Rajasthan</option>
+                        <option>Punjab</option><option>West Bengal</option>
+                        <option>Maharashtra</option><option>Himachal Pradesh</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label>PLANTING DATE</label>
+                    <input type="date" id="date" class="ui-input">
+                </div>
+                <button id="run-btn">FIND BEST CROP</button>
+            </div>
+
+            <div id="output" class="terminal">> Awaiting user input parameters...</div>
+
+            <div class="chart-section" id="chart-area" style="display:none;">
+                <p class="label">CROP COMPARISON (AI UTILITY MATCH)</p>
+                <div class="chart-wrap"><canvas id="utilityChart"></canvas></div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        let myChart = null;
+        document.getElementById('run-btn').onclick = async () => {
+            const date = document.getElementById('date').value;
+            if(!date) return alert("Select a date!");
+
+            const out = document.getElementById('output');
+            out.innerHTML = "> ANALYZING SOIL & CLIMATE DATA...";
+
+            const res = await fetch('/analyze', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ state: document.getElementById('state').value, date })
+            });
+
+            const d = await res.json();
+            
+            // Update Info Cards
+            document.getElementById('loc-tag').innerText = d.location;
+            document.getElementById('card-temp').innerText = d.temp + " °C";
+            document.getElementById('card-rain').innerText = d.rain + " mm";
+            document.getElementById('card-season').innerText = d.season;
+
+            // Update Terminal
+            out.innerHTML = `<div class="res">> SUCCESS: RECOMMENDED CROP IS <span class="neon">${d.best_crop.name}</span> (${d.best_crop.utility}%)</div>`;
+
+            // Update Chart
+            document.getElementById('chart-area').style.display = 'block';
+            if(myChart) myChart.destroy();
+            myChart = new Chart(document.getElementById('utilityChart'), {
+                type: 'bar',
+                data: {
+                    labels: d.all_results.map(r => r.name),
+                    datasets: [{
+                        data: d.all_results.map(r => r.utility),
+                        backgroundColor: 'rgba(0, 255, 170, 0.2)',
+                        borderColor: '#00ffaa', borderWidth: 2, borderRadius: 5
+                    }]
+                },
+                options: { 
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { 
+                        y: { beginAtZero: true, max: 100, grid: { color: 'rgba(255,255,255,0.05)' } },
+                        x: { ticks: { color: '#fff' } }
+                    }
+                }
+            });
+        };
+    </script>
+</body>
+</html>
